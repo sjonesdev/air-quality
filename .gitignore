@@ -22,3 +22,5 @@ go.work
 
 # Go file to store the environment variables
 config.go
+
+.DS_Store
