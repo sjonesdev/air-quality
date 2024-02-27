@@ -1,0 +1,98 @@
+<!--
+    Copyright (C) Samuel Jones - All Rights Reserved
+    Unauthorized copying of this file, via any medium is strictly prohibited
+    Proprietary and confidential
+    Written by Samuel Jones <spjones329@gmail.com>, February 2024
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <title>Air Quality History</title>
+</head>
+
+<body>
+    <canvas id="graph"></canvas>
+
+    <span hidden="true" id="date-data">{{ .Dates }}</span>
+    <span hidden="true" id="co2-data">{{ .Co2s }}</span>
+    <span hidden="true" id="temp-data">{{ .Temps }}</span>
+    <span hidden="true" id="humid-data">{{ .Humids }}</span>
+
+    <script>
+        const ctx = document.getElementById('graph').getContext('2d');
+        const labels = document.getElementById('date-data').innerText.split(',').map(dateStr => new Date(dateStr).toLocaleString());
+        const co2Data = document.getElementById('co2-data').innerText.slice(1, -1).split(' ').map(numStr => parseInt(numStr));
+        const tempData = document.getElementById('temp-data').innerText.slice(1, -1).split(' ').map(numStr => -45 + 175 * parseInt(numStr) / Math.pow(2, 16))
+        const humidData = document.getElementById('humid-data').innerText.slice(1, -1).split(' ').map(numStr => 100 * parseInt(numStr) / Math.pow(2, 16))
+        const data = {
+            labels: labels,
+            datasets: [{
+                label: 'CO2 (PPM)',
+                data: co2Data,
+                fill: false,
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                yAxisID: 'y'
+            },
+            {
+                label: 'Temp (°C)',
+                data: tempData,
+                fill: false,
+                borderColor: 'rgb(192, 75, 192)',
+                tension: 0.1,
+                yAxisID: 'y1'
+            },
+            {
+                label: 'Humidity (%RH)',
+                data: humidData,
+                fill: false,
+                borderColor: 'rgb(192, 192, 75)',
+                tension: 0.1,
+                yAxisID: 'y1'
+            }]
+        };
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                stacked: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Air Quality History'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+
+                        // grid line settings
+                        grid: {
+                            drawOnChartArea: false, // only want the grid lines for one axis to show up
+                        },
+                    },
+                }
+            },
+        };
+
+        new Chart(ctx, config);
+    </script>
+</body>
+
+</html>
