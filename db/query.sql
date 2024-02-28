@@ -29,3 +29,43 @@ VALUES
     ($1, $2, $3)
 RETURNING
     *;
+
+-- name: GetLatestAirStat :one
+SELECT
+    *
+FROM
+    air_stats
+ORDER BY
+    created_at DESC
+LIMIT
+    1;
+
+-- name: GetAirStatsPerFiveMinutes :many
+SELECT
+    (
+        '2010-01-01T00:00:00'::timestamp + interval '5 minutes' * (
+            (
+                (
+                    DATE_PART(
+                        'day',
+                        T.created_at - '2010-01-01T00:00:00'::timestamp
+                    ) * 24 + DATE_PART(
+                        'hour',
+                        T.created_at - '2010-01-01T00:00:00'::timestamp
+                    )
+                ) * 60 + DATE_PART(
+                    'minute',
+                    T.created_at - '2010-01-01T00:00:00'::timestamp
+                )
+            )::bigint / 5
+        )
+    )::timestamp AS five_minute_interval_start,
+    AVG(T.co2_ppm)::int as co2_ppm,
+    AVG(T.temp_tick)::int as temp_tick,
+    AVG(T.humidity_tick)::int as humidity_tick
+FROM
+    air_stats T
+GROUP BY
+    five_minute_interval_start
+ORDER BY
+    five_minute_interval_start;

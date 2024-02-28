@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAirStat = `-- name: CreateAirStat :one
@@ -38,6 +40,12 @@ func (q *Queries) CreateAirStat(ctx context.Context, arg CreateAirStatParams) (A
 }
 
 const getAirStat = `-- name: GetAirStat :one
+/* 
+ * Copyright (C) Samuel Jones - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ * Written by Samuel Jones <spjones329@gmail.com>, February 2024
+ */
 SELECT
     id, co2_ppm, temp_tick, humidity_tick, created_at
 FROM
@@ -50,6 +58,93 @@ LIMIT
 
 func (q *Queries) GetAirStat(ctx context.Context, id int64) (AirStat, error) {
 	row := q.db.QueryRow(ctx, getAirStat, id)
+	var i AirStat
+	err := row.Scan(
+		&i.ID,
+		&i.Co2Ppm,
+		&i.TempTick,
+		&i.HumidityTick,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getAirStatsPerFiveMinutes = `-- name: GetAirStatsPerFiveMinutes :many
+SELECT
+    (
+        '2010-01-01T00:00:00'::timestamp + interval '5 minutes' * (
+            (
+                (
+                    DATE_PART(
+                        'day',
+                        T.created_at - '2010-01-01T00:00:00'::timestamp
+                    ) * 24 + DATE_PART(
+                        'hour',
+                        T.created_at - '2010-01-01T00:00:00'::timestamp
+                    )
+                ) * 60 + DATE_PART(
+                    'minute',
+                    T.created_at - '2010-01-01T00:00:00'::timestamp
+                )
+            )::bigint / 5
+        )
+    )::timestamp AS five_minute_interval_start,
+    AVG(T.co2_ppm)::int as co2_ppm,
+    AVG(T.temp_tick)::int as temp_tick,
+    AVG(T.humidity_tick)::int as humidity_tick
+FROM
+    air_stats T
+GROUP BY
+    five_minute_interval_start
+ORDER BY
+    five_minute_interval_start
+`
+
+type GetAirStatsPerFiveMinutesRow struct {
+	FiveMinuteIntervalStart pgtype.Timestamp
+	Co2Ppm                  int32
+	TempTick                int32
+	HumidityTick            int32
+}
+
+func (q *Queries) GetAirStatsPerFiveMinutes(ctx context.Context) ([]GetAirStatsPerFiveMinutesRow, error) {
+	rows, err := q.db.Query(ctx, getAirStatsPerFiveMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAirStatsPerFiveMinutesRow
+	for rows.Next() {
+		var i GetAirStatsPerFiveMinutesRow
+		if err := rows.Scan(
+			&i.FiveMinuteIntervalStart,
+			&i.Co2Ppm,
+			&i.TempTick,
+			&i.HumidityTick,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLatestAirStat = `-- name: GetLatestAirStat :one
+SELECT
+    id, co2_ppm, temp_tick, humidity_tick, created_at
+FROM
+    air_stats
+ORDER BY
+    created_at DESC
+LIMIT
+    1
+`
+
+func (q *Queries) GetLatestAirStat(ctx context.Context) (AirStat, error) {
+	row := q.db.QueryRow(ctx, getLatestAirStat)
 	var i AirStat
 	err := row.Scan(
 		&i.ID,

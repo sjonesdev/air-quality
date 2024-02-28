@@ -1,5 +1,7 @@
 # Air-Quality
 
+Software for measuring, recording, and viewing air quality data
+
 ## Dev DB Setup
 
 -   `docker pull postgres:16`

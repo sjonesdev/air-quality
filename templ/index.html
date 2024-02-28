@@ -23,13 +23,20 @@
     <span hidden="true" id="humid-data">{{ .Humids }}</span>
 
     <script>
+        const parseTemp = (/**@type string*/numStr) => -45 + 175 * parseInt(numStr) / Math.pow(2, 16)
+        const parseHumid = (/**@type string*/numStr) => 100 * parseInt(numStr) / Math.pow(2, 16)
+
         const ctx = document.getElementById('graph').getContext('2d');
-        const labels = document.getElementById('date-data').innerText.split(',').map(dateStr => new Date(dateStr).toLocaleString());
-        const co2Data = document.getElementById('co2-data').innerText.slice(1, -1).split(' ').map(numStr => parseInt(numStr));
-        const tempData = document.getElementById('temp-data').innerText.slice(1, -1).split(' ').map(numStr => -45 + 175 * parseInt(numStr) / Math.pow(2, 16))
-        const humidData = document.getElementById('humid-data').innerText.slice(1, -1).split(' ').map(numStr => 100 * parseInt(numStr) / Math.pow(2, 16))
+        const dates = document.getElementById('date-data').innerText.split(',').map(dateStr => new Date(dateStr))
+        const co2DataRaw = document.getElementById('co2-data').innerText.slice(1, -1).split(' ')
+        const tempDataRaw = document.getElementById('temp-data').innerText.slice(1, -1).split(' ')
+        const humidDataRaw = document.getElementById('humid-data').innerText.slice(1, -1).split(' ')
+
+        const labels = dates.map(date => date.toLocaleString());
+        const co2Data = co2DataRaw.map((numStr, idx) => ({ x: dates[idx], y: parseInt(numStr) }));
+        const tempData = tempDataRaw.map((numStr, idx) => ({ x: dates[idx], y: parseTemp(numStr) }))
+        const humidData = humidDataRaw.map((numStr, idx) => ({ x: dates[idx], y: parseHumid(numStr) }))
         const data = {
-            labels: labels,
             datasets: [{
                 label: 'CO2 (PPM)',
                 data: co2Data,
@@ -55,6 +62,7 @@
                 yAxisID: 'y1'
             }]
         };
+        const datesSeen = new Set()
         const config = {
             type: 'line',
             data: data,
@@ -72,15 +80,43 @@
                     }
                 },
                 scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        },
+                        ticks: {
+                            // Include a dollar sign in the ticks
+                            callback: function (value, index, ticks) {
+                                if (index === 0) datesSeen.clear();
+                                const date = new Date(value);
+                                const datetimeStr = date.toLocaleString();
+                                const [dateStr, timeStr] = datetimeStr.split(',');
+                                if (datesSeen.has(dateStr)) return timeStr;
+                                datesSeen.add(dateStr);
+                                return datetimeStr.replace(', ', '\n');
+                            },
+                            minRotation: 30
+                        }
+                    },
                     y: {
                         type: 'linear',
                         display: true,
                         position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Concentration (PPM)'
+                        }
                     },
                     y1: {
                         type: 'linear',
                         display: true,
                         position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C) / Humidity (%RH)'
+                        },
 
                         // grid line settings
                         grid: {
@@ -91,7 +127,29 @@
             },
         };
 
-        new Chart(ctx, config);
+        const chart = new Chart(ctx, config);
+
+        function addData(chart, label, [co2Data, tempData, humidData]) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(co2Data);
+            chart.data.datasets[1].data.push(tempData);
+            chart.data.datasets[2].data.push(humidData);
+            chart.update();
+        }
+
+        const ws = new WebSocket(`ws://${window.location.host}/datastream`)
+        let lastDate = new Date()
+        ws.onmessage = (/** @type MessageEvent<string> */ event) => {
+            const strs = event.data.split(',')
+            const date = new Date(strs[0])
+            if (date.valueOf() === lastDate.valueOf()) return;
+            lastDate = date;
+            const co2 = parseInt(strs[1])
+            const temp = parseTemp(strs[2])
+            const humid = parseHumid(strs[3])
+            addData(chart, date, [co2, temp, humid])
+        }
+
     </script>
 </body>
 

@@ -15,11 +15,15 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"html/template"
 
+	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
 )
+
+var upgrader = websocket.Upgrader{}
 
 func handleSensorConn(conn net.Conn, dbconn *db.Queries, ctx context.Context) {
 	log.Printf("Accepted connection from %v", conn.RemoteAddr())
@@ -75,23 +79,13 @@ func main() {
 
 	queries := db.New(dbconn)
 
-	// TODO: start HTTP server for simple web interface
-	// which send an initial server-rendered payload that is
-	// kept up to date via websocket
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// t, err := template.New("foo").Parse(`
-		// {{define "T"}}
-		// <p>{{.}}</p>
-		// {{end}}`)
-		// if err != nil {
-		// 	log.Printf("failed to parse template: %v", err)
-		// }
 		t, err := template.ParseFiles("templ/index.html")
 		if err != nil {
 			log.Printf("failed to parse template: %v", err)
 		}
 
-		stats, err := queries.ListAirStats(ctx)
+		stats, err := queries.GetAirStatsPerFiveMinutes(ctx)
 		if err != nil {
 			log.Printf("failed to get stats: %v", err)
 		}
@@ -100,7 +94,7 @@ func main() {
 		temps := make([]int32, len(stats))
 		humids := make([]int32, len(stats))
 		for i, stat := range stats {
-			dates[i] = stat.CreatedAt.Time.String()
+			dates[i] = stat.FiveMinuteIntervalStart.Time.String()
 			co2s[i] = stat.Co2Ppm
 			temps[i] = stat.TempTick
 			humids[i] = stat.HumidityTick
@@ -111,6 +105,28 @@ func main() {
 		err = t.Execute(w, clientStats)
 		if err != nil {
 			log.Printf("failed to execute template: %v", err)
+		}
+	})
+
+	http.HandleFunc("/datastream", func(w http.ResponseWriter, r *http.Request) {
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Print("upgrade:", err)
+			return
+		}
+		defer c.Close()
+		for {
+			time.Sleep(5 * time.Second)
+			stat, err := queries.GetLatestAirStat(ctx)
+			if err != nil {
+				log.Printf("failed to get latest air stat: %v", err)
+				continue
+			}
+			err = c.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%s,%d,%d,%d", stat.CreatedAt.Time.String(), stat.Co2Ppm, stat.TempTick, stat.HumidityTick)))
+			if err != nil {
+				log.Println("write:", err)
+				break
+			}
 		}
 	})
 	go http.ListenAndServe(":80", nil)

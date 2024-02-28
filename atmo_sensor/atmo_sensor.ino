@@ -12,6 +12,7 @@
 #include "WiFiS3.h"
 #include "arduino_secrets.h"
 
+// define these in "arduino_secrets.h"
 char ssid[] = SECRET_SSID; // your network SSID (name)
 char pass[] = SECRET_PASS; // your network password (use for WPA, or use as key for WEP)
 int status = WL_IDLE_STATUS;
