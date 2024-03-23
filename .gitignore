@@ -24,3 +24,5 @@ go.work
 config.go
 
 .DS_Store
+
+secrets.h

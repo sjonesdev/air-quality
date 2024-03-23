@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.make": "makefile",
+        "*.hcl": "hcl",
+        "scd4x_i2c.h": "c"
+    }
+}
