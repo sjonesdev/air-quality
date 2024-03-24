@@ -32,6 +32,7 @@
 #include "sensirion_i2c_hal.h"
 #include "sensirion_common.h"
 #include "sensirion_config.h"
+#include <util/delay.h>
 
 /*
  * INSTRUCTIONS
@@ -55,7 +56,7 @@ int16_t sensirion_i2c_hal_select_bus(uint8_t bus_idx) {
     /* TODO:IMPLEMENT or leave empty if all sensors are located on one single
      * bus NOTE:this is for arduino so I believe this is the case.
      */
-    return NOT_IMPLEMENTED_ERROR;
+    return NO_ERROR;  // NOT_IMPLEMENTED_ERROR;
 }
 
 /**
@@ -84,7 +85,8 @@ void sensirion_i2c_hal_free(void) {
  * @returns 0 on success, error code otherwise
  */
 int8_t sensirion_i2c_hal_read(uint8_t address, uint8_t* data, uint16_t count) {
-    /* TODO:IMPLEMENT */
+    /* TODO:check if address is in most significant or least significant bits */
+    address &= ~0x1u;  // set 0th bit to 0 (read)
     return NOT_IMPLEMENTED_ERROR;
 }
 
@@ -102,6 +104,7 @@ int8_t sensirion_i2c_hal_read(uint8_t address, uint8_t* data, uint16_t count) {
 int8_t sensirion_i2c_hal_write(uint8_t address, const uint8_t* data,
                                uint16_t count) {
     /* TODO:IMPLEMENT */
+    address |= 0x1u;  // set 0th bit to 1 (write)
     return NOT_IMPLEMENTED_ERROR;
 }
 
@@ -114,5 +117,5 @@ int8_t sensirion_i2c_hal_write(uint8_t address, const uint8_t* data,
  * @param useconds the sleep time in microseconds
  */
 void sensirion_i2c_hal_sleep_usec(uint32_t useconds) {
-    /* TODO:IMPLEMENT */
+    _delay_us((double)useconds);
 }
