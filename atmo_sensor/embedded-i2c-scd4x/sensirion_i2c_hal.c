@@ -32,7 +32,19 @@
 #include "sensirion_i2c_hal.h"
 #include "sensirion_common.h"
 #include "sensirion_config.h"
+
+#include <avr/interrupt.h>
+#include <avr/io.h>
+#include <avr/pgmspace.h>
+#include <compat/twi.h>
+#include <inttypes.h>
+#include <math.h>
+#include <stdlib.h>
 #include <util/delay.h>
+
+#define BITRATE(TWSR)          \
+    ((F_CPU / SCL_CLK) - 16) / \
+        (2 * pow(4, (TWSR & ((1 << TWPS0) | (1 << TWPS1)))))
 
 /*
  * INSTRUCTIONS
@@ -65,6 +77,7 @@ int16_t sensirion_i2c_hal_select_bus(uint8_t bus_idx) {
  */
 void sensirion_i2c_hal_init(void) {
     /* TODO:IMPLEMENT */
+    TWBR = BITRATE(TWSR = 0x00);
 }
 
 /**
