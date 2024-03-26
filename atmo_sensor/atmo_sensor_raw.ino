@@ -2,19 +2,7 @@
 #include "scd4x_i2c.h"
 #include "sensirion_common.h"
 #include "sensirion_i2c_hal.h"
-
-// extern "C"
-// {
-//   void sensirion_i2c_hal_init();
-//   void scd4x_wake_up();
-//   void scd4x_stop_periodic_measurement();
-//   void scd4x_reinit();
-//   int16_t scd4x_get_serial_number(uint16_t *, uint16_t *, uint16_t *);
-//   int16_t scd4x_start_periodic_measurement();
-//   void sensirion_i2c_hal_sleep_usec(uint32_t);
-//   int16_t scd4x_get_data_ready_flag(bool *);
-//   int16_t scd4x_read_measurement(uint16_t *, int32_t *, int32_t *);
-// }
+#include "r_iic_master.h"
 
 int16_t error = 0;
 
@@ -22,12 +10,21 @@ void setup()
 {
   Serial.begin(115200);
 
+  delay(1000);
+  Serial.println("Hello there.");
+
   sensirion_i2c_hal_init();
+  Serial.println("Initialized HAL via driver");
+
 
   // Clean up potential SCD40 states
   scd4x_wake_up();
+  Serial.println("Woke up sensor");
   scd4x_stop_periodic_measurement();
+  Serial.println("Stopped periodic measurement");
   scd4x_reinit();
+
+  Serial.println("Initialized SCD40");
 
   uint16_t serial_0;
   uint16_t serial_1;
@@ -49,6 +46,8 @@ void setup()
     Serial.println(serial_2);
   }
 
+  Serial.println("Got Serial No.");
+
   // Start Measurement
 
   error = scd4x_start_periodic_measurement();
@@ -57,12 +56,15 @@ void setup()
     Serial.print("Error executing scd4x_start_periodic_measurement(): ");
     Serial.println(error);
   }
+
+  Serial.println("Started Periodic Measurement");
 }
 
 void loop()
 {
   // Read Measurement
   sensirion_i2c_hal_sleep_usec(100000);
+  Serial.println("Slept");
   bool data_ready_flag = false;
   error = scd4x_get_data_ready_flag(&data_ready_flag);
   if (error)
@@ -73,13 +75,16 @@ void loop()
   }
   if (!data_ready_flag)
   {
+    Serial.println("Data not ready");
     return;
   }
+  Serial.println("Data ready");
 
   uint16_t co2;
   int32_t temperature;
   int32_t humidity;
   error = scd4x_read_measurement(&co2, &temperature, &humidity);
+  Serial.println("Read measurement");
   if (error)
   {
     Serial.print("Error executing scd4x_read_measurement(): ");

@@ -164,6 +164,11 @@ void sensirion_i2c_hal_init(void) {
     if (initd) {
         sensirion_i2c_hal_free();
     }
+    i2c_cfg.rxi_irq = FSP_INVALID_VECTOR;
+    i2c_cfg.txi_irq = FSP_INVALID_VECTOR;
+    i2c_cfg.tei_irq = FSP_INVALID_VECTOR;
+    i2c_cfg.eri_irq = FSP_INVALID_VECTOR;
+
     i2c_cfg.p_extend = &i2c_extend;
     i2c_cfg.p_callback = i2c_callback;
 
@@ -172,7 +177,12 @@ void sensirion_i2c_hal_init(void) {
 
     i2c_cfg.channel = RA4M1_I2C_CHANNEL_MASTER;
     i2c_cfg.rate = I2C_MASTER_RATE_STANDARD;
-    i2c_cfg.slave = 0x00;
+    i2c_extend.clock_settings.brl_value = 27;
+    i2c_extend.clock_settings.brh_value = 26;
+    int clock_divisor =
+        (R_FSP_SystemClockHzGet(BSP_FEATURE_SCI_CLOCK) / 48000000u) - 1;
+    i2c_extend.clock_settings.cks_value = 2 + clock_divisor;
+    i2c_cfg.slave = 0x62;  // default address for SCD4x dev boards from Adafruit
     i2c_cfg.addr_mode = I2C_MASTER_ADDR_MODE_7BIT;
     i2c_cfg.p_transfer_tx = NULL;
     i2c_cfg.p_transfer_rx = NULL;
