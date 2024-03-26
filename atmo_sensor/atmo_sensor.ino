@@ -231,7 +231,7 @@ void printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2)
   Serial.println();
 }
 
-void setup()
+void setup_old()
 {
   Serial.begin(115200);
   while (!Serial)
@@ -350,7 +350,7 @@ uint16_t co2Samples[12];
 uint16_t tempSamples[12];
 uint16_t humiditySamples[12];
 uint8_t sampleIdx = 0;
-void loop()
+void loop_old()
 {
   uint16_t error;
   char errorMessage[256];

@@ -38,9 +38,9 @@
 /**
  * TO USE CONSOLE OUTPUT (PRINTF) IF NOT PRESENT ON YOUR PLATFORM
  */
-//#define printf(...)
+// #define printf(...)
 
-int main(void) {
+int example_main(void) {
     int16_t error = 0;
 
     sensirion_i2c_hal_init();

@@ -2,6 +2,12 @@
     "files.associations": {
         "*.make": "makefile",
         "*.hcl": "hcl",
-        "scd4x_i2c.h": "c"
+        "scd4x_i2c.h": "c",
+        "sensirion_i2c_hal.h": "c",
+        "sensirion_config.h": "c",
+        "stdlib.h": "c",
+        "stdint.h": "c",
+        "cstdint": "c",
+        "r_iic_master.h": "c"
     }
 }

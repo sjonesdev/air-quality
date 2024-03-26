@@ -14,9 +14,11 @@
             "intelliSenseMode": "macos-clang-arm64"
         },
         {
-            "name": "AVR C",
+            "name": "Arduino ARM C",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/variants/UNOWIFIR4/**",
+                "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/cores/**"
             ],
             "defines": [],
             "macFrameworkPath": [
@@ -24,8 +26,11 @@
             ],
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "macos-clang-arm64",
-            "compilerPath": "/opt/homebrew/bin/avr-gcc"
+            "intelliSenseMode": "macos-clang-arm",
+            "compilerPath": "/Users/samueljones/Library/Arduino15/packages/arduino/tools/arm-none-eabi-gcc/7-2017q4/bin/arm-none-eabi-gcc",
+            "compilerArgs": [
+                "-mcpu=cortex-m4"
+            ]
         }
     ],
     "version": 4

@@ -1,0 +1,5 @@
+{
+    "sketch": "atmo_sensor/atmo_sensor_raw.ino",
+    "board": "arduino:renesas_uno:unor4wifi",
+    "programmer": "rfp"
+}
