@@ -18,7 +18,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/variants/UNOWIFIR4/**",
-                "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/cores/**"
+                "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/cores/**",
+                "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/cores/arduino/usb",
+                "/Users/samueljones/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/cores/arduino/tinyusb"
             ],
             "defines": [],
             "macFrameworkPath": [

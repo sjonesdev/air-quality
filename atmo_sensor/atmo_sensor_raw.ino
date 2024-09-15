@@ -12,6 +12,7 @@ void setup()
 
   delay(1000);
   Serial.println("Hello there.");
+  // serial_write((const uint8_t*)"test1\n", 6);
 
   sensirion_i2c_hal_init();
   Serial.println("Initialized HAL via driver");

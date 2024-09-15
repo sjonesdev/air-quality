@@ -70,13 +70,15 @@
 // SCI_CHANNEL|PIN_RX_MISO_SCL|CHANNEL_0|SCI_EVEN_CFG|LAST_ITEM_GUARD
 // };
 
+#define ARDUINO
+
 #include "sensirion_i2c_hal.h"
 #include "sensirion_common.h"
 #include "sensirion_config.h"
 
 #include "r_iic_master.h"
+#include "r_rtc.h"
 #include <assert.h>
-
 #define END_TX_OK 0
 #define END_TX_DATA_TOO_LONG 1
 #define END_TX_NACK_ON_ADD 2
@@ -84,7 +86,41 @@
 #define END_TX_ERR_FSP 4
 #define END_TX_TIMEOUT 5
 #define END_TX_NOT_INIT 6
+// #include "IRQManager.h"
+// #include "vector_data.h"
+
+volatile bool timesUp = false;
+void rtc_callback(rtc_callback_args_t* p_args) {
+    if (p_args->event == RTC_EVENT_ALARM_IRQ)
+        timesUp = true;
+}
 #define TIMEOUT_MS 1000
+rtc_instance_ctrl_t rtc_ctrl;
+rtc_error_adjustment_cfg_t rtc_err_adj = {
+    .adjustment_mode = RTC_ERROR_ADJUSTMENT_MODE_MANUAL,
+    .adjustment_period = RTC_ERROR_ADJUSTMENT_PERIOD_NONE,
+    .adjustment_type = RTC_ERROR_ADJUSTMENT_NONE,
+    .adjustment_value = 0};
+rtc_cfg_t rtc_cfg = {.clock_source = RTC_CLOCK_SOURCE_LOCO,
+                     .freq_compare_value_loco = 261,  // found on arduino forums
+                     .p_err_cfg = &rtc_err_adj,
+                     .alarm_ipl = 12,
+                     .alarm_irq = FSP_INVALID_VECTOR,
+                     .periodic_ipl = 2,
+                     .periodic_irq = FSP_INVALID_VECTOR,
+                     .carry_ipl = 2,
+                     .carry_irq = FSP_INVALID_VECTOR,
+                     .p_callback = rtc_callback,
+                     .p_context = &rtc_cfg,
+                     .p_extend = NULL};
+rtc_time_t cur_time;
+rtc_alarm_time_t alarm_time = {.dayofweek_match = false,
+                               .hour_match = false,
+                               .mday_match = false,
+                               .min_match = false,
+                               .mon_match = false,
+                               .sec_match = true,
+                               .year_match = false};
 
 // why
 #define CHANNEL_POS (6)
@@ -101,7 +137,7 @@ typedef enum {
     I2C_STATUS_TX_REQUEST,
     I2C_STATUS_GENERAL_CALL
 } i2c_status_t;
-i2c_status_t i2c_status = I2C_STATUS_UNSET;
+volatile i2c_status_t i2c_status = I2C_STATUS_UNSET;
 
 bool initd = false;
 
@@ -110,20 +146,13 @@ bool initd = false;
 
 iic_master_extended_cfg_t i2c_extend;
 iic_master_instance_ctrl_t i2c_ctrl;
-i2c_master_cfg_t i2c_cfg = {
-    // .channel       = RA4M1_I2C_CHANNEL_MASTER,
-    // .rate = I2C_MASTER_RATE_FAST,
-    // .slave         = I2C_SLAVE_EEPROM,
-    // .addr_mode     = I2C_MASTER_ADDR_MODE_7BIT,
-    // .p_callback    = i2c_callback,     // Callback
-    // .p_context = &i2c_ctrl,
-    // .p_transfer_tx = NULL,
-    // .p_transfer_rx = NULL,
-    // .p_extend      = &g_iic_master_cfg_extend
-};
+i2c_master_cfg_t i2c_cfg;
+
+#ifdef ARDUINO
+extern const fsp_vector_t g_vector_table[];
+#endif
 
 void i2c_callback(i2c_master_callback_args_t* p_args) {
-    /* +++++ MASTER I2C not SCI Callback ++++++ */
     i2c_master_cfg_t* cfg = (i2c_master_cfg_t*)p_args->p_context;
 
     if (cfg->channel != i2c_cfg.channel) {
@@ -164,10 +193,29 @@ void sensirion_i2c_hal_init(void) {
     if (initd) {
         sensirion_i2c_hal_free();
     }
-    i2c_cfg.rxi_irq = FSP_INVALID_VECTOR;
-    i2c_cfg.txi_irq = FSP_INVALID_VECTOR;
-    i2c_cfg.tei_irq = FSP_INVALID_VECTOR;
-    i2c_cfg.eri_irq = FSP_INVALID_VECTOR;
+
+// something wrong with this vector table stuff
+#ifdef ARDUINO
+    for (size_t i = 0; i < BSP_ICU_VECTOR_MAX_ENTRIES; i++) {
+        if (g_vector_table[i] == iic_master_rxi_isr) {
+            i2c_cfg.rxi_irq = i;
+        } else if (g_vector_table[i] == iic_master_txi_isr) {
+            i2c_cfg.txi_irq = i;
+        } else if (g_vector_table[i] == iic_master_tei_isr) {
+            i2c_cfg.tei_irq = i;
+        } else if (g_vector_table[i] == iic_master_eri_isr) {
+            i2c_cfg.eri_irq = i;
+        } else if (g_vector_table[i] == rtc_alarm_periodic_isr) {
+            rtc_cfg.alarm_irq = i;
+        }
+    }
+#else
+    i2c_cfg.rxi_irq = IIC1_RXI_IRQn;
+    i2c_cfg.txi_irq = IIC1_TXI_IRQn;
+    i2c_cfg.tei_irq = IIC1_TEI_IRQn;
+    i2c_cfg.eri_irq = IIC1_ERI_IRQn;
+    rtc_cfg.alarm_irq = RTC_ALARM_IRQn;
+#endif
 
     i2c_cfg.p_extend = &i2c_extend;
     i2c_cfg.p_callback = i2c_callback;
@@ -196,6 +244,15 @@ void sensirion_i2c_hal_init(void) {
     assert(FSP_SUCCESS == err);
 
     initd = true;
+
+    err = R_RTC_Open(&rtc_ctrl, &rtc_cfg);
+    assert(FSP_SUCCESS == err);
+
+    if (R_SYSTEM->RSTSR0 == 1) {  // no idea
+        /* Set the RTC clock source. Can be skipped if "Set Source Clock in
+         * Open" property is enabled. Where is that? no idea*/
+        R_RTC_ClockSourceSet(&rtc_ctrl);
+    }
 }
 
 /**
@@ -204,6 +261,9 @@ void sensirion_i2c_hal_init(void) {
 void sensirion_i2c_hal_free(void) {
     if (!initd)
         return;
+
+    R_IIC_MASTER_Close(&i2c_ctrl);
+    R_RTC_Close(&rtc_ctrl);
 
     initd = false;
 }
@@ -229,10 +289,20 @@ int8_t sensirion_i2c_hal_read(uint8_t address, uint8_t* data, uint16_t count) {
             i2c_status = I2C_STATUS_UNSET;
             err = R_IIC_MASTER_Read(&i2c_ctrl, data, count, false);
         }
-        // uint32_t const start = millis();
-        while (/*((millis() - start) < TIMEOUT_MS) && */
-               i2c_status == I2C_STATUS_UNSET && err == FSP_SUCCESS) {
+
+        fsp_err_t rtc_err = R_RTC_CalendarTimeGet(&rtc_ctrl, &cur_time);
+        if (rtc_err == FSP_SUCCESS) {
+            alarm_time.time = cur_time;
+            alarm_time.time.tm_sec += 1;
+            rtc_err = R_RTC_CalendarAlarmSet(&rtc_ctrl, &alarm_time);
         }
+
+        // size_t iter = 0;
+        if (rtc_err == FSP_SUCCESS)
+            while (/*iter < 10000 &&*/ !timesUp &&
+                   i2c_status == I2C_STATUS_UNSET && err == FSP_SUCCESS) {
+                // iter++;
+            }
     }
 
     if (i2c_status == I2C_STATUS_RX_COMPLETED) {
@@ -268,10 +338,20 @@ int8_t sensirion_i2c_hal_write(uint8_t address, const uint8_t* data,
             i2c_status = I2C_STATUS_UNSET;
             err = R_IIC_MASTER_Write(&i2c_ctrl, data, count, false);
         }
-        // uint32_t const start = millis();
-        while (/*((millis() - start) < TIMEOUT_MS) && */
-               i2c_status == I2C_STATUS_UNSET && err == FSP_SUCCESS) {
+
+        fsp_err_t rtc_err = R_RTC_CalendarTimeGet(&rtc_ctrl, &cur_time);
+        if (rtc_err == FSP_SUCCESS) {
+            alarm_time.time = cur_time;
+            alarm_time.time.tm_sec += 1;
+            rtc_err = R_RTC_CalendarAlarmSet(&rtc_ctrl, &alarm_time);
         }
+
+        // size_t iter = 0;
+        if (rtc_err == FSP_SUCCESS)
+            while (/*iter < 10000 &&*/ !timesUp &&
+                   i2c_status == I2C_STATUS_UNSET && err == FSP_SUCCESS) {
+                // iter++;
+            }
 
         if (err != FSP_SUCCESS) {
             rv = END_TX_ERR_FSP;

@@ -8,6 +8,16 @@
         "stdlib.h": "c",
         "stdint.h": "c",
         "cstdint": "c",
-        "r_iic_master.h": "c"
+        "r_iic_master.h": "c",
+        "arduino.h": "c",
+        "hardwareserial.h": "c",
+        "*.tcc": "c",
+        "serialusb.h": "c",
+        "serial.h": "c",
+        "sensirion_serial.h": "c",
+        "assert.h": "c",
+        "irqmanager.h": "c",
+        "r_rtc.h": "c",
+        "vector_data.h": "c"
     }
 }
